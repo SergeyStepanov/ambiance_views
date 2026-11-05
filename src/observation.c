@@ -8,6 +8,8 @@ void observation_init(Observation *observation)
     observation->center_x = WORLD_W * 0.5f;
     observation->center_y = WORLD_H * 0.5f;
     observation->zoom = 1;
+    observation->width = WORLD_W * 4;
+    observation->height = WORLD_H * 4;
 }
 
 void observation_select(Observation *observation, const World *world, uint32_t id)
@@ -30,8 +32,8 @@ void observation_step(Observation *observation, const World *world, float elapse
     float target_zoom = creature ? 1.5f : 1;
     float blend = 1 - expf(-elapsed * 3);
     observation->zoom += (target_zoom - observation->zoom) * blend;
-    float margin_x = WORLD_W * 0.5f / observation->zoom;
-    float margin_y = WORLD_H * 0.5f / observation->zoom;
+    float margin_x = observation->width / (8 * observation->zoom);
+    float margin_y = observation->height / (8 * observation->zoom);
     float target_x = creature ? fmaxf(margin_x, fminf(WORLD_W - margin_x, creature->x)) : WORLD_W * 0.5f;
     float target_y = creature ? fmaxf(margin_y, fminf(WORLD_H - margin_y, creature->y)) : WORLD_H * 0.5f;
     observation->center_x += (target_x - observation->center_x) * blend;
@@ -48,13 +50,13 @@ void observation_step(Observation *observation, const World *world, float elapse
 
 void observation_screen(const Observation *observation, float x, float y, float *screen_x, float *screen_y)
 {
-    *screen_x = roundf((x - observation->center_x) * 4 * observation->zoom + WORLD_W * 2);
-    *screen_y = roundf((y - observation->center_y) * 4 * observation->zoom + WORLD_H * 2);
+    *screen_x = roundf((x - observation->center_x) * 4 * observation->zoom + observation->width * 0.5f);
+    *screen_y = roundf((y - observation->center_y) * 4 * observation->zoom + observation->height * 0.5f);
 }
 
 uint32_t observation_hit(const Observation *observation, const World *world, float screen_x, float screen_y)
 {
-    if (screen_x < 0 || screen_y < 0 || screen_x >= WORLD_W * 4 || screen_y >= WORLD_H * 4) return 0;
+    if (screen_x < 0 || screen_y < 0 || screen_x >= observation->width || screen_y >= observation->height) return 0;
     float best = 8 * observation->zoom;
     best *= best;
     uint32_t found = 0;

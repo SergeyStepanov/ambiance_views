@@ -74,6 +74,24 @@ void view_destroy(View *view)
     memset(view, 0, sizeof(*view));
 }
 
+bool view_resize(View *view, Observation *observation)
+{
+    int width, height;
+    if (!SDL_GetRenderOutputSize(view->renderer, &width, &height)) return false;
+    if (width <= 0 || height <= 0) return true;
+    float scale = fmaxf(1, ceilf(fmaxf((float)width / (WORLD_W * 4), (float)height / (WORLD_H * 4))));
+    if (!SDL_SetRenderLogicalPresentation(view->renderer, 0, 0, SDL_LOGICAL_PRESENTATION_DISABLED)
+        || !SDL_SetRenderViewport(view->renderer, NULL)
+        || !SDL_SetRenderScale(view->renderer, scale, scale)) return false;
+    observation->width = width / scale;
+    observation->height = height / scale;
+    float margin_x = observation->width / (8 * observation->zoom);
+    float margin_y = observation->height / (8 * observation->zoom);
+    observation->center_x = fmaxf(margin_x, fminf(WORLD_W - margin_x, observation->center_x));
+    observation->center_y = fmaxf(margin_y, fminf(WORLD_H - margin_y, observation->center_y));
+    return true;
+}
+
 static void rectangle(SDL_Renderer *renderer, float x, float y, float width, float height, SDL_Color color)
 {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
@@ -109,7 +127,7 @@ bool view_draw(View *view, const World *world, const Observation *observation, f
             const Cell *cell = &world->cells[y * WORLD_W + x];
             float screen_x, screen_y;
             observation_screen(observation, x + 0.5f, y + 0.5f, &screen_x, &screen_y);
-            if (screen_x < -16 || screen_y < -16 || screen_x > WORLD_W * 4 + 16 || screen_y > WORLD_H * 4 + 16) continue;
+            if (screen_x < -16 || screen_y < -16 || screen_x > observation->width + 16 || screen_y > observation->height + 16) continue;
             if (cell->terrain == WATER) {
                 if (cell->variation % 9 == 0) {
                     float shimmer = sinf(time * 0.8f + x * 0.7f + y * 0.4f);
@@ -179,10 +197,10 @@ bool view_draw(View *view, const World *world, const Observation *observation, f
             SDL_Vertex vertices[6] = {
                 {{x, 0}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}},
                 {{x + 100, 0}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}},
-                {{x - 25, WORLD_H * 4}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}},
+                {{x - 25, observation->height}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}},
                 {{x + 100, 0}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}},
-                {{x + 75, WORLD_H * 4}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}},
-                {{x - 25, WORLD_H * 4}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}}
+                {{x + 75, observation->height}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}},
+                {{x - 25, observation->height}, {0.16f, 0.25f, 0.22f, 0.10f}, {0, 0}}
             };
             for (int vertex = 0; vertex < 6; ++vertex) vertices[vertex].color.a *= world->cloud_amount;
             SDL_RenderGeometry(renderer, NULL, vertices, 6, NULL, 0);
@@ -191,13 +209,13 @@ bool view_draw(View *view, const World *world, const Observation *observation, f
     if (world->rain_amount > 0.01f) {
         SDL_SetRenderDrawColor(renderer, 197, 226, 222, (Uint8)(105 * world->rain_amount));
         for (int drop = 0; drop < 90; ++drop) {
-            float x = fmodf(drop * 73.0f + time * 11, WORLD_W * 4);
-            float y = fmodf(drop * 41.0f + time * 130, WORLD_H * 4);
+            float x = fmodf(drop * 73.0f + time * 11, observation->width);
+            float y = fmodf(drop * 41.0f + time * 130, observation->height);
             SDL_RenderLine(renderer, roundf(x), roundf(y), roundf(x - 1), roundf(y + 3));
         }
     }
     float night = (1 - cosf(time / DAY_SECONDS * 6.2831853f)) * 0.5f;
     night = powf(night, 3);
-    rectangle(renderer, 0, 0, WORLD_W * 4, WORLD_H * 4, (SDL_Color){30, 50, 64, (Uint8)(night * 105)});
+    rectangle(renderer, 0, 0, observation->width, observation->height, (SDL_Color){30, 50, 64, (Uint8)(night * 105)});
     return SDL_FlushRenderer(renderer);
 }

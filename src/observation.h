@@ -9,6 +9,7 @@ typedef struct {
     TrailPoint trail[TRAIL_CAPACITY];
     int head, count;
     float last_sample, center_x, center_y, zoom;
+    float width, height;
 } Observation;
 void observation_init(Observation *observation);
 void observation_select(Observation *observation, const World *world, uint32_t id);

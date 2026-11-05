@@ -54,7 +54,7 @@ int main(int argc, char **argv)
     observation_init(&observation);
     world_init(world, seed);
     for (int tick = 0; tick < (int)(advance / SIM_DT); ++tick) world_step(world, SIM_DT);
-    if (!SDL_Init(headless ? 0 : SDL_INIT_VIDEO)) goto cleanup;
+    if (!SDL_Init(headless ? SDL_INIT_EVENTS : SDL_INIT_VIDEO)) goto cleanup;
     SDL_SetAppMetadata("Living Terrarium", "0.1.0", "org.ambianceviews.terrarium");
     if (headless) {
         surface = SDL_CreateSurface(WORLD_W * 4, WORLD_H * 4, SDL_PIXELFORMAT_RGBA32);
@@ -62,26 +62,27 @@ int main(int argc, char **argv)
     } else {
         if (!SDL_CreateWindowAndRenderer("Living Terrarium", 960, 544,
                 SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY, &window, &renderer)) goto cleanup;
-        SDL_SetWindowMinimumSize(window, WORLD_W * 4, WORLD_H * 4);
+        SDL_SetWindowMinimumSize(window, 160, 160);
     }
-    if (!renderer || !SDL_SetRenderLogicalPresentation(renderer, WORLD_W * 4, WORLD_H * 4,
-                                                        SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)
-        || !view_init(&view, renderer)) goto cleanup;
+    if (!renderer || !view_init(&view, renderer) || !view_resize(&view, &observation)) goto cleanup;
     bool vsync = !headless && SDL_SetRenderVSync(renderer, 1);
     bool running = true, minimized = false, fullscreen = false;
     double previous = (double)SDL_GetTicksNS() / 1e9, accumulator = 0;
     unsigned long frame = 0;
     while (running) {
         Uint64 frame_start = SDL_GetTicksNS();
+        if (!view_resize(&view, &observation)) goto cleanup;
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
             else if (event.type == SDL_EVENT_WINDOW_MINIMIZED) { minimized = true; accumulator = 0; }
             else if (event.type == SDL_EVENT_WINDOW_RESTORED) {
                 minimized = false; accumulator = 0; previous = (double)SDL_GetTicksNS() / 1e9;
+            } else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED || event.type == SDL_EVENT_WINDOW_RESIZED) {
+                if (!view_resize(&view, &observation)) goto cleanup;
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT) {
                 if (SDL_ConvertEventToRenderCoordinates(renderer, &event)) {
-                    if (event.button.x >= 0 && event.button.y >= 0 && event.button.x < WORLD_W * 4 && event.button.y < WORLD_H * 4)
+                    if (event.button.x >= 0 && event.button.y >= 0 && event.button.x < observation.width && event.button.y < observation.height)
                         observation_select(&observation, world, observation_hit(&observation, world, event.button.x, event.button.y));
                 }
             } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
@@ -124,6 +125,7 @@ int main(int argc, char **argv)
             if (!SDL_PushEvent(&click)) goto cleanup;
         }
         if (smoke && frame == 90 && window) SDL_SetWindowSize(window, 1440, 900);
+        if (!view_resize(&view, &observation)) goto cleanup;
         observation_step(&observation, world, (float)elapsed);
         if (!view_draw(&view, world, &observation, (float)(accumulator / SIM_DT))) goto cleanup;
         if (!SDL_RenderPresent(renderer)) goto cleanup;

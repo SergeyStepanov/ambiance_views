@@ -5,6 +5,12 @@ Every launch creates a fresh world. There are no scores, world-editing controls,
 victory conditions or loss screens. All art is original bitmap data embedded in
 the executable; no network connection or external asset files are needed.
 
+## Made by AI
+
+Code, tests, documentation and original pixel art were created by GitHub Copilot,
+without manual coding or drawing by the "meatbags". Humans supplied the idea,
+direction and feedback.
+
 ## Build and Run
 
 Requirements: CMake 3.20+, a C11 compiler, and SDL 3.2+ with its CMake development
@@ -17,8 +23,12 @@ cmake --build build -j
 ./build/ambiance_views
 ```
 
-The resizable window starts at 960x544. A 480x272 logical canvas uses nearest
-sampling and integer scaling, with letterboxing for other aspect ratios.
+The resizable window starts at 960x544 and can shrink to 160x160. The camera
+adapts its visible area to the actual window dimensions and fills the window
+without letterboxing or stretching the art. Narrow portrait windows show a
+vertical portion of the world; widening the same window expands the view again.
+The 480x272 world uses nearest sampling and integer pixel scaling. Following a
+creature, mouse selection and weather overlays adapt to the visible area too.
 
 - Click a creature to follow it; its recent path fades over 20 simulation seconds.
 - Click empty ground or press Escape to return to the overview.
@@ -67,7 +77,10 @@ relationships, obstacle routing, connected land, daily activity, reproduction,
 weather, emigration, same-seed reproducibility, stable creature IDs, trail expiry,
 observation independence and nonblank rendered pixels. The extended test checks
 20 seeds over approximately four simulated years each. Native tests require a
-display and verify four window sizes, mouse-coordinate conversion and fullscreen.
+display and repeatedly resize the same window through eight sizes, including
+320x960, 640x1080 and 160x480 portrait views and a return to 960x544. They verify
+full-window pixel coverage, preserved selection, mouse-coordinate conversion
+and fullscreen.
 To include the native test in CTest, configure with `-DTERRARIUM_NATIVE_TESTS=ON`.
 
 ```sh
